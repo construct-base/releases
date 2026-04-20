@@ -358,7 +358,7 @@ jobs:
           ENDJSON
 
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2.5.0
+        uses: softprops/action-gh-release@v3
         with:
           tag_name: v${{ inputs.version }}
           name: Construct v${{ inputs.version }}
