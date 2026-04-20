@@ -4,18 +4,18 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'Version to release (e.g. 0.7.0 or 0.7.0-beta.1)'
+        description: "Version to release (e.g. 0.7.0 or 0.7.0-beta.1)"
         required: true
         type: string
       branch:
-        description: 'Branch to build from'
+        description: "Branch to build from"
         required: false
-        default: 'main'
+        default: "main"
         type: string
       channel:
-        description: 'Release channel'
+        description: "Release channel"
         required: false
-        default: 'stable'
+        default: "stable"
         type: choice
         options:
           - stable
@@ -140,7 +140,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v6
         with:
-          go-version: '1.25'
+          go-version: "1.26.2"
           cache-dependency-path: construct-app/operator/go.sum
 
       # Operator is now inside the monorepo
