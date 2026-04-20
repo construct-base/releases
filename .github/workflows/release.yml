@@ -123,6 +123,10 @@ jobs:
             -k "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
           security list-keychain -d user -s $KEYCHAIN_PATH login.keychain-db
 
+      - name: Install macOS dependencies
+        if: runner.os == 'macOS'
+        run: brew install create-dmg
+
       - name: Install Linux dependencies
         if: matrix.platform == 'ubuntu-22.04'
         run: |
@@ -173,16 +177,30 @@ jobs:
           cd construct-app
           bun install
 
+      # Pulls the prebuilt cargo-tauri binary (~2s) instead of compiling
+      # it from source (~8 min × 4 matrix jobs). taiki-e/install-action
+      # picks the right binary for each runner's triple automatically.
       - name: Install Tauri CLI
-        run: cargo install tauri-cli --version "^2.0" --locked
+        uses: taiki-e/install-action@v2
+        with:
+          tool: tauri-cli@2.0
 
-      # Build frontend without typecheck (auto-import .d.ts are gitignored)
+      # Patch beforeBuildCommand to frontend-only (skip type-check, avoid recursion)
       - name: Patch build command for CI
         shell: bash
         run: |
           cd construct-app
-          sed -i.bak 's/"beforeBuildCommand": ".*"/"beforeBuildCommand": "npx cross-env TAURI=true bun run vite build --config frontend\/vite.config.ts"/' desktop/tauri.conf.json
-          rm -f desktop/tauri.conf.json.bak
+          # -r: extended regex; tr strips \r so the pattern matches on Windows CRLF files
+          content=$(cat desktop/tauri.conf.json | tr -d '\r')
+          echo "$content" | sed 's|"beforeBuildCommand": ".*"|"beforeBuildCommand": "npx cross-env TAURI=true bun run vite build --config frontend/vite.config.ts"|' > desktop/tauri.conf.json
+          # Verify the patch applied
+          grep beforeBuildCommand desktop/tauri.conf.json
+
+      # Browser sidecar isn't built in release pipeline; remove it so tauri CLI
+      # doesn't auto-discover browser/src-tauri as the project root.
+      - name: Remove browser sidecar for CI
+        shell: bash
+        run: rm -rf construct-app/browser/src-tauri
 
       - name: Build & sign with tauri-action
         uses: tauri-apps/tauri-action@v0
