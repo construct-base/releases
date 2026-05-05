@@ -48,6 +48,10 @@ jobs:
             target: x86_64-pc-windows-msvc
             os_label: windows-x64
 
+          - platform: windows-latest
+            target: aarch64-pc-windows-msvc
+            os_label: windows-arm64
+
     runs-on: ${{ matrix.platform }}
     permissions:
       contents: write
@@ -160,6 +164,7 @@ jobs:
             x86_64-apple-darwin)  GOOS=darwin GOARCH=amd64 ;;
             x86_64-unknown-linux-gnu) GOOS=linux GOARCH=amd64 ;;
             x86_64-pc-windows-msvc) GOOS=windows GOARCH=amd64 ;;
+            aarch64-pc-windows-msvc) GOOS=windows GOARCH=arm64 ;;
             *) echo "Unknown target: $TARGET"; exit 1 ;;
           esac
 
@@ -281,7 +286,7 @@ jobs:
             cp "$LINUX_DIR"/deb/*.deb release-assets/ 2>/dev/null || true
           fi
 
-          # Windows
+          # Windows x64
           WIN_DIR="artifacts/build-windows-x64"
           if [ -d "$WIN_DIR" ]; then
             cp "$WIN_DIR"/nsis/*.exe release-assets/ 2>/dev/null || true
@@ -290,6 +295,17 @@ jobs:
             cp "$WIN_DIR"/nsis/*.nsis.zip.sig release-assets/ 2>/dev/null || true
             cp "$WIN_DIR"/msi/*.msi release-assets/ 2>/dev/null || true
             cp "$WIN_DIR"/msi/*.msi.sig release-assets/ 2>/dev/null || true
+          fi
+
+          # Windows ARM64
+          WIN_ARM_DIR="artifacts/build-windows-arm64"
+          if [ -d "$WIN_ARM_DIR" ]; then
+            cp "$WIN_ARM_DIR"/nsis/*.exe release-assets/ 2>/dev/null || true
+            cp "$WIN_ARM_DIR"/nsis/*.exe.sig release-assets/ 2>/dev/null || true
+            cp "$WIN_ARM_DIR"/nsis/*.nsis.zip release-assets/ 2>/dev/null || true
+            cp "$WIN_ARM_DIR"/nsis/*.nsis.zip.sig release-assets/ 2>/dev/null || true
+            cp "$WIN_ARM_DIR"/msi/*.msi release-assets/ 2>/dev/null || true
+            cp "$WIN_ARM_DIR"/msi/*.msi.sig release-assets/ 2>/dev/null || true
           fi
 
           ls -la release-assets/
@@ -329,7 +345,7 @@ jobs:
             "${BASE_URL}/Construct_${VERSION}_amd64.AppImage.tar.gz" \
             "Construct_${VERSION}_amd64.AppImage.tar.gz.sig"
 
-          # Windows — check nsis.zip first, then msi
+          # Windows x64 — check nsis.zip first, then msi
           WIN_SIG_FILE=""
           WIN_URL=""
           for pattern in "Construct_${VERSION}_x64-setup*.nsis.zip" "Construct_${VERSION}_x64*.msi"; do
@@ -338,6 +354,16 @@ jobs:
             done
           done
           [ -n "$WIN_SIG_FILE" ] && add_platform "windows-x86_64" "$WIN_URL" "$(basename "$WIN_SIG_FILE")"
+
+          # Windows ARM64
+          WIN_ARM_SIG_FILE=""
+          WIN_ARM_URL=""
+          for pattern in "Construct_${VERSION}_arm64-setup*.nsis.zip" "Construct_${VERSION}_arm64*.msi"; do
+            for f in release-assets/$pattern; do
+              [ -f "$f" ] && [ -f "${f}.sig" ] && WIN_ARM_SIG_FILE="${f}.sig" && WIN_ARM_URL="${BASE_URL}/$(basename "$f")" && break 2
+            done
+          done
+          [ -n "$WIN_ARM_SIG_FILE" ] && add_platform "windows-aarch64" "$WIN_ARM_URL" "$(basename "$WIN_ARM_SIG_FILE")"
 
           if [ -z "$PLATFORMS" ]; then
             echo "ERROR: No signed platform bundles found. Skipping latest.json."
@@ -372,7 +398,8 @@ jobs:
             - **macOS (Apple Silicon)**: `.dmg`
             - **macOS (Intel)**: `.dmg`
             - **Linux**: `.AppImage` / `.deb`
-            - **Windows**: `.exe` / `.msi`
+            - **Windows (x64)**: `.exe` / `.msi`
+            - **Windows (ARM64)**: `.exe` / `.msi`
 
             ### Auto-Update
             Existing installations will receive this update automatically.
