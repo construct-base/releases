@@ -82,9 +82,16 @@ jobs:
           # Update Cargo.toml
           sed -i.bak 's/^version = "[^"]*"/version = "${{ inputs.version }}"/' desktop/Cargo.toml
           rm -f desktop/Cargo.toml.bak
-          # Update operator version
-          sed -i.bak 's/const Version = "[^"]*"/const Version = "${{ inputs.version }}"/' operator/main.go
-          rm -f operator/main.go.bak
+          # Update sidecar version — brain on 1.1.x+, operator on older branches.
+          # Use whichever exists; skip cleanly otherwise.
+          if [ -f operator/main.go ]; then
+            sed -i.bak 's/const Version = "[^"]*"/const Version = "${{ inputs.version }}"/' operator/main.go
+            rm -f operator/main.go.bak
+          fi
+          if [ -f brain/main.go ]; then
+            sed -i.bak 's/const Version = "[^"]*"/const Version = "${{ inputs.version }}"/' brain/main.go
+            rm -f brain/main.go.bak
+          fi
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
@@ -149,14 +156,30 @@ jobs:
         uses: actions/setup-go@v6
         with:
           go-version: "1.26.2"
-          cache-dependency-path: construct-app/operator/go.sum
+          # 1.1.x renamed operator → brain; older branches still have operator.
+          # Cache against whichever go.sum exists (action accepts a glob list).
+          cache-dependency-path: |
+            construct-app/brain/go.sum
+            construct-app/operator/go.sum
 
-      # Operator is now inside the monorepo
-      - name: Build operator binary
+      # Build the Go sidecar. On 1.1.x+ this is `brain/` and the binary is
+      # `construct-brain-<TARGET>` (matches tauri.conf externalBin). Older
+      # branches built `operator/` as `construct-operator-<TARGET>`.
+      - name: Build sidecar binary
         shell: bash
         run: |
-          cd construct-app/operator
-          mkdir -p ../desktop/bin
+          cd construct-app
+          mkdir -p desktop/bin
+
+          if [ -d brain ]; then
+            SIDECAR_DIR=brain
+            BINARY_BASENAME=construct-brain
+          elif [ -d operator ]; then
+            SIDECAR_DIR=operator
+            BINARY_BASENAME=construct-operator
+          else
+            echo "No sidecar directory found (brain/ or operator/)"; exit 1
+          fi
 
           TARGET="${{ matrix.target }}"
           case "$TARGET" in
@@ -168,12 +191,13 @@ jobs:
             *) echo "Unknown target: $TARGET"; exit 1 ;;
           esac
 
-          BINARY_NAME="construct-operator-${TARGET}"
+          BINARY_NAME="${BINARY_BASENAME}-${TARGET}"
           if [[ "$GOOS" == "windows" ]]; then
             BINARY_NAME="${BINARY_NAME}.exe"
           fi
 
-          echo "Building operator: GOOS=$GOOS GOARCH=$GOARCH → $BINARY_NAME"
+          echo "Building ${SIDECAR_DIR}: GOOS=$GOOS GOARCH=$GOARCH → $BINARY_NAME"
+          cd "$SIDECAR_DIR"
           GOOS=$GOOS GOARCH=$GOARCH go build -o "../desktop/bin/${BINARY_NAME}" .
           chmod +x "../desktop/bin/${BINARY_NAME}" 2>/dev/null || true
 
