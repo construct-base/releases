@@ -53,10 +53,18 @@ sed -i '' "s/\"version\": \"[^\"]*\"/\"version\": \"${VERSION}\"/" desktop/tauri
 # Cargo.toml (line 3)
 sed -i '' "3s/version = \"[^\"]*\"/version = \"${VERSION}\"/" desktop/Cargo.toml
 
-# Operator version
-sed -i '' "s/const Version = \"[^\"]*\"/const Version = \"${VERSION}\"/" operator/main.go
+# Sidecar version — brain replaces operator on 1.1.x+; bump whichever exists.
+SIDECAR_FILES=()
+if [ -f operator/main.go ]; then
+  sed -i '' "s/const Version = \"[^\"]*\"/const Version = \"${VERSION}\"/" operator/main.go
+  SIDECAR_FILES+=("operator/main.go")
+fi
+if [ -f brain/main.go ]; then
+  sed -i '' "s/const Version = \"[^\"]*\"/const Version = \"${VERSION}\"/" brain/main.go
+  SIDECAR_FILES+=("brain/main.go")
+fi
 
-git add package.json desktop/tauri.conf.json desktop/Cargo.toml operator/main.go
+git add package.json desktop/tauri.conf.json desktop/Cargo.toml "${SIDECAR_FILES[@]}"
 git commit -m "Release ${VERSION}" 2>/dev/null || echo "  (no changes)"
 git push origin "$BRANCH"
 cd - > /dev/null
