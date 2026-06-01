@@ -59,9 +59,10 @@ if [ -f operator/main.go ]; then
   sed -i '' "s/const Version = \"[^\"]*\"/const Version = \"${VERSION}\"/" operator/main.go
   SIDECAR_FILES+=("operator/main.go")
 fi
-if [ -f brain/main.go ]; then
-  sed -i '' "s/const Version = \"[^\"]*\"/const Version = \"${VERSION}\"/" brain/main.go
-  SIDECAR_FILES+=("brain/main.go")
+if [ -f brain/constants.go ]; then
+  # Brain version lives in constants.go as `const version = "..."` (lowercase).
+  sed -i '' "s/const version = \"[^\"]*\"/const version = \"${VERSION}\"/" brain/constants.go
+  SIDECAR_FILES+=("brain/constants.go")
 fi
 
 git add package.json desktop/tauri.conf.json desktop/Cargo.toml "${SIDECAR_FILES[@]}"
