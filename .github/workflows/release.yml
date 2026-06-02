@@ -305,6 +305,10 @@ jobs:
           LINUX_DIR="artifacts/build-linux-x64"
           if [ -d "$LINUX_DIR" ]; then
             cp "$LINUX_DIR"/appimage/*.AppImage release-assets/ 2>/dev/null || true
+            # Tauri v2 signs the AppImage directly (.AppImage.sig); older
+            # versions produced .AppImage.tar.gz(.sig). Copy both so latest.json
+            # finds whichever this toolchain emitted.
+            cp "$LINUX_DIR"/appimage/*.AppImage.sig release-assets/ 2>/dev/null || true
             cp "$LINUX_DIR"/appimage/*.AppImage.tar.gz release-assets/ 2>/dev/null || true
             cp "$LINUX_DIR"/appimage/*.AppImage.tar.gz.sig release-assets/ 2>/dev/null || true
             cp "$LINUX_DIR"/deb/*.deb release-assets/ 2>/dev/null || true
@@ -365,14 +369,24 @@ jobs:
             "${BASE_URL}/Construct_${VERSION}_x64.app.tar.gz" \
             "Construct_${VERSION}_x64.app.tar.gz.sig"
 
-          add_platform "linux-x86_64" \
-            "${BASE_URL}/Construct_${VERSION}_amd64.AppImage.tar.gz" \
-            "Construct_${VERSION}_amd64.AppImage.tar.gz.sig"
+          # Linux AppImage: Tauri v2 emits .AppImage(.sig); fall back to the
+          # older .AppImage.tar.gz(.sig) if that's what's present.
+          if [ -f "release-assets/Construct_${VERSION}_amd64.AppImage.sig" ]; then
+            add_platform "linux-x86_64" \
+              "${BASE_URL}/Construct_${VERSION}_amd64.AppImage" \
+              "Construct_${VERSION}_amd64.AppImage.sig"
+          else
+            add_platform "linux-x86_64" \
+              "${BASE_URL}/Construct_${VERSION}_amd64.AppImage.tar.gz" \
+              "Construct_${VERSION}_amd64.AppImage.tar.gz.sig"
+          fi
 
-          # Windows x64 — check nsis.zip first, then msi
+          # Windows x64 — Tauri v2 NSIS updater artifact is the signed
+          # *-setup.exe (.exe.sig); older versions used *-setup.nsis.zip. Try
+          # the current naming first, then the legacy ones.
           WIN_SIG_FILE=""
           WIN_URL=""
-          for pattern in "Construct_${VERSION}_x64-setup*.nsis.zip" "Construct_${VERSION}_x64*.msi"; do
+          for pattern in "Construct_${VERSION}_x64-setup.exe" "Construct_${VERSION}_x64-setup*.nsis.zip" "Construct_${VERSION}_x64*.msi"; do
             for f in release-assets/$pattern; do
               [ -f "$f" ] && [ -f "${f}.sig" ] && WIN_SIG_FILE="${f}.sig" && WIN_URL="${BASE_URL}/$(basename "$f")" && break 2
             done
@@ -382,7 +396,7 @@ jobs:
           # Windows ARM64
           WIN_ARM_SIG_FILE=""
           WIN_ARM_URL=""
-          for pattern in "Construct_${VERSION}_arm64-setup*.nsis.zip" "Construct_${VERSION}_arm64*.msi"; do
+          for pattern in "Construct_${VERSION}_arm64-setup.exe" "Construct_${VERSION}_arm64-setup*.nsis.zip" "Construct_${VERSION}_arm64*.msi"; do
             for f in release-assets/$pattern; do
               [ -f "$f" ] && [ -f "${f}.sig" ] && WIN_ARM_SIG_FILE="${f}.sig" && WIN_ARM_URL="${BASE_URL}/$(basename "$f")" && break 2
             done
