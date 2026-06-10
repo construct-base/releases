@@ -9,7 +9,14 @@
 set -e
 
 REPO="construct-space/releases"
-APP_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../construct-app" && pwd)"
+# construct-app moved under apps/ in the monorepo (was ../construct-app).
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+APP_DIR="$(cd "$SCRIPT_DIR/../apps/construct-app" 2>/dev/null && pwd || true)"
+if [ -z "$APP_DIR" ] || [ ! -f "$APP_DIR/package.json" ]; then
+  echo "ERROR: construct-app not found at \$SCRIPT_DIR/../apps/construct-app" >&2
+  echo "  (expected: $SCRIPT_DIR/../apps/construct-app)" >&2
+  exit 1
+fi
 CHANNEL="${2:-stable}"
 BRANCH="${3:-main}"
 
